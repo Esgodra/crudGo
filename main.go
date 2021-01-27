@@ -1,52 +1,62 @@
 package main
 
 import (
+	"crudGo/internal/database"
+	"crudGo/server"
 	"database/sql"
 	"fmt"
-	"log"
-	"net/http"
-
-	_ "github.com/ibmdb/go_ibm_db" //Libreria de db2
 )
 
-// Database estructura
-type Database struct {
-	db     *sql.DB
-	schema string
+func execquery(st *sql.Stmt) error {
+	rows, err := st.Query()
+	if err != nil {
+		return err
+	}
+	cols, _ := rows.Columns()
+	fmt.Printf("%s  %s  %s  %s\n", cols[0], cols[1], cols[2], cols[3])
+	fmt.Println("--------------------------------------------------------------------------------------------------------------")
+	defer rows.Close()
+	for rows.Next() {
+		var t, x, m, n string
+		err = rows.Scan(&t, &x, &m, &n)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%v %v %v       %v\n", t, x, m, n)
+	}
+	return nil
 }
 
-var database Database
+func getBooks(db *sql.DB) error {
+	st, err := db.Prepare("SELECT * FROM BOOKS")
+	if err != nil {
+		return err
+	}
+	err = execquery(st)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateBook(bookID int, title string, author string, readstatus int, db *sql.DB) error {
+	st, err := db.Prepare("UPDATE BOOKS SET TITLE = ?, AUTHOR= ?, READSTATUS= ? WHERE ID = ?")
+
+	if err != nil {
+		return err
+	}
+	err = execquery(st)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func main() {
-	fmt.Println("Started")
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello world")
-	})
-	if isConnect, err := ReconnectDB(); err != nil && !isConnect {
-		fmt.Println("Error")
-	} else {
-		fmt.Println("Connected")
-	}
+	fmt.Println("Main")
+	database.NewDb2Client("DATABASE=BLUDB;HOSTNAME=dashdb-txn-sbox-yp-dal09-10.services.dal.bluemix.net;PORT=50000;PROTOCOL=TCPIP;UID=wpd52601;PWD=ccj779@zvp40hz2d;")
 
-	log.Fatal(http.ListenAndServe(":444", nil))
-}
-
-//ReconnectDB function for connect to Database
-func ReconnectDB() (bool, error) {
-	dsn := "DATABASE=testdb;HOSTNAME=172.17.0.1;UID=db2inst1;PWD=IBM2BLU;PORT=50000;PROTOCOL=TCPIP;"
-	if isConnect, err := OpenDBConnection(dsn); err != nil && !isConnect {
-		fmt.Printf("Error, while connecting to DB: %s \n", err)
-		return false, err
-	}
-	return true, nil
-}
-
-// OpenDBConnection function open this database connection
-func OpenDBConnection(dsn string) (bool, error) {
-	var err error
-	database.db, err = sql.Open("go_ibm_db", dsn)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	mux := server.Routes()
+	serv := server.NewServer(mux)
+	serv.Run()
 }
