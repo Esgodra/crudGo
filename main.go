@@ -3,6 +3,7 @@ package main
 import (
 	"crudGo/internal/database"
 	"crudGo/server"
+	"crudGo/web"
 	"database/sql"
 	"fmt"
 )
@@ -54,9 +55,10 @@ func updateBook(bookID int, title string, author string, readstatus int, db *sql
 
 func main() {
 	fmt.Println("Main")
-	database.NewDb2Client("DATABASE=BLUDB;HOSTNAME=dashdb-txn-sbox-yp-dal09-10.services.dal.bluemix.net;PORT=50000;PROTOCOL=TCPIP;UID=wpd52601;PWD=ccj779@zvp40hz2d;")
+	client := database.NewDb2Client("DATABASE=BLUDB;HOSTNAME=dashdb-txn-sbox-yp-dal09-10.services.dal.bluemix.net;PORT=50000;PROTOCOL=TCPIP;UID=wpd52601;PWD=ccj779@zvp40hz2d;")
 
-	mux := server.Routes()
+	handler := web.NewCreateBookHandler(client)
+	mux := server.Routes(handler)
 	serv := server.NewServer(mux)
 	serv.Run()
 }
